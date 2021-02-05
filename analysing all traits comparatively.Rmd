@@ -1,0 +1,165 @@
+---
+title: "comparison between trait changes"
+author: "Suz"
+date: "27 January 2021"
+output: html_document
+---
+
+libraries required
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(data.table)
+```
+
+read in data
+
+```{r}
+regenandgrowth <- read.csv("regenandgrowthdatafull.csv")
+leafdata <- read.csv("leafdatafull.csv")
+defensesdata <- read.csv("defensesdatafull.csv")
+typeoftrait <- read.csv("morphphysdefensenot.csv")
+```
+
+Stitch them altogether and just take the columns that have the trait LRRs to compare across the different traits
+```{r}
+alldata1 <- left_join(regenandgrowth, leafdata, by ="Species")
+alldata <- left_join(alldata1, defensesdata, by = "Species") %>%
+  select(Species, seedmassLRR, seeddimLRR, viabLRR, dormancyLRR, germsuccLRR, heightLRR, biomassLRR, roottoshootLRR, stemLRR, thickLRR, lmaLRR, marginLRR, dimensionsLRR, stomataLRR, areaLRR, photoLRR, nitrogenLRR, WUELRR, PC1, phenolicsLRR, lipidsLRR, C.N.LRR, ashLRR)
+
+```
+
+Plot all the traits (violin plots)
+
+First make all the traits ABSOLUTE - so that we can work out the magnitude of change (because if there are lots of increases and decreases through time these will cancel out to zero)
+
+```{r}
+alldata$seedmassLRR <- abs(alldata$seedmassLRR)
+alldata$seeddimLRR <- abs(alldata$seeddimLRR)
+alldata$viabLRR <- abs(alldata$viabLRR)
+alldata$dormancyLRR <- abs(alldata$dormancyLRR)
+alldata$germsuccLRR <- abs(alldata$germsuccLRR)
+alldata$areaLRR <- abs(alldata$areaLRR)
+alldata$marginLRR <- abs(alldata$marginLRR)
+alldata$lmaLRR <- abs(alldata$lmaLRR)
+alldata$dimensionsLRR <- abs(alldata$dimensionsLRR)
+alldata$thickLRR <- abs(alldata$thickLRR)
+alldata$stomataLRR <- abs(alldata$stomataLRR)
+alldata$photoLRR <- abs(alldata$photoLRR)
+alldata$nitrogenLRR <- abs(alldata$nitrogenLRR)
+alldata$WUELRR <- abs(alldata$WUELRR)
+alldata$PC1 <- abs(alldata$PC1)
+alldata$phenolicsLRR <- abs(alldata$phenolicsLRR)
+alldata$lipidsLRR <- abs(alldata$lipidsLRR)
+alldata$C.N.LRR <- abs(alldata$C.N.LRR)
+alldata$ashLRR <- abs(alldata$ashLRR)
+alldata$stemLRR <- abs(alldata$stemLRR)
+alldata$roottoshootLRR <- abs(alldata$roottoshootLRR)
+alldata$heightLRR <- abs(alldata$heightLRR)
+alldata$biomassLRR <- abs(alldata$biomassLRR)
+```
+
+
+Then get the means and sds for each trait
+
+```{r}
+means <- summarize_all(alldata, mean, na.rm=TRUE)
+rownames(means) <- c("mean")
+sds <- summarize_all(alldata, sd, na.rm=TRUE)
+rownames(sds) <- c("sd")
+dataforplots <- rbind(alldata, means, sds)
+
+
+
+#then just take the rows and columns I want
+dataforplots <- dataforplots[44:45,2:24]
+
+#add names for means and sds
+datatype <- c("means", "sd")
+dataforplots <- cbind(datatype, dataforplots)
+
+#then make that long
+
+dataforplotslong <- melt(setDT(dataforplots), id.vars = c("datatype"), variable.name = "trait")
+
+#and then make sure means and sds are on their own columns
+dataforplotslong <- spread(dataforplotslong, datatype, value)
+```
+
+Now add data for whether traits are physiological traits or morphological traits (or defense traits)
+
+```{r}
+##add the trait types to the means data
+traitdata <- left_join(dataforplotslong, typeoftrait, by="trait")
+
+#save this data
+write.csv(traitdata, "traitdata.csv")
+
+```
+
+now make points with error bar plots
+```{r}
+#add a row for each mean so that I can add this to the plot at the bottom
+Overalldefence <- data.frame(trait = "OverallDefences", means = 0.13627, sd = 0.06885, morpphys = NA, defensenot = NA, morpphysdefence = "defence")
+
+Overallmorph <- data.frame(trait = "Overallmorph", means = 0.21955, sd = 0.12242, morpphys = NA, defensenot = NA, morpphysdefence = "morph")
+
+Overallphys <- data.frame(trait = "Overallphys", means = 0.71574, sd = 0.67500, morpphys = NA, defensenot = NA, morpphysdefence = "phys")
+
+traitdataforplot <- bind_rows(traitdata, Overalldefence, Overallmorph, Overallphys)
+
+#reorder the variable so I can have it look correct in the graph
+traitdataforplot$trait <- factor(traitdataforplot$trait, levels = c("seedmassLRR", "seeddimLRR", "stemLRR", "roottoshootLRR", "heightLRR", "biomassLRR", "areaLRR", "marginLRR", "lmaLRR", "dimensionsLRR", "thickLRR", "stomataLRR", "viabLRR", "dormancyLRR", "germsuccLRR", "photoLRR", "nitrogenLRR", "WUELRR", "PC1", "phenolicsLRR", "lipidsLRR", "C.N.LRR", "ashLRR", "OverallDefences", "Overallmorph", "Overallphys"))
+
+#pick colours
+mycolours <- c("skyblue1", "lightsalmon2", "darkseagreen4")
+
+Traitplot <-  ggplot(traitdataforplot, aes(x = trait, y = means, color = traitdataforplot$morpphysdefence)) +
+  geom_point(size=7) +
+  scale_color_manual(values=mycolours) +
+  scale_x_discrete(limits = rev(levels(traitdataforplot$trait))) +
+  geom_errorbar(data=traitdataforplot, mapping=aes(ymin=traitdataforplot$means - traitdataforplot$sd, ymax=traitdataforplot$means + traitdataforplot$sd), width=0.5, size=2) +
+  geom_point(data=subset(traitdataforplot, trait == "OverallDefences"), colour = "skyblue1", shape = 18, size = 22) +
+  geom_point(data=subset(traitdataforplot, trait == "Overallmorph"), colour = "lightsalmon2", shape = 18, size = 22) +
+  geom_point(data=subset(traitdataforplot, trait == "Overallphys"), colour = "darkseagreen4", shape = 18, size = 22) +
+  coord_flip() +
+  theme_classic(base_size=40) +
+  theme(legend.position = "none")
+  
+  
+
+plot(Traitplot)
+```
+
+Save this figure
+
+```{r}
+ggsave(filename = "alltraitsplot.tiff", plot=Traitplot, device="tiff", dpi=100, width=15, height=20, units="in") 
+```
+
+Now analyse all changes in defence traits vs physiological traits vs morphological traits
+
+
+```{r}
+traittype <- aov(means ~ morpphysdefence, data = traitdata)
+summary(traittype)
+TukeyHSD(traittype)
+```
+
+Now want to do a violin plot with average trait data
+
+```{r}
+traitspreadplot <- ggplot(data = traitdata, aes(x=morpphysdefence, y = means)) +
+  geom_violin(fill = "lightsalmon2") +
+  stat_summary(fun.y = mean, geom="point", size = 3, colour = "darkseagreen4") +
+  stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), geom = "pointrange", size = 2, colour = "darkseagreen4") +
+  theme_classic(base_size = 50)
+
+plot(traitspreadplot)
+
+#save this figure
+
+ggsave(filename = "defphysmorph.tiff", plot=traitspreadplot, device="tiff", dpi=200, width=20, height=18, units="in")
+```
+

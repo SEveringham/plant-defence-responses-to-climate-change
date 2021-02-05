@@ -1,0 +1,78 @@
+---
+title: "PCA defenses"
+author: "Suz"
+date: "7 January 2021"
+output: html_document
+---
+
+```{r}
+library(missMDA)
+library(FactoMineR)
+library(dplyr)
+library(tidyr)
+library(ggfortify)
+library(ggplot2)
+```
+
+Reading in Data created previously in rmarkdown 
+```{r}
+defensedata <- read.csv("defensesdatafull.csv")
+```
+
+Create a dataframe with just the three variables to see where the NAs lie 
+
+```{r}
+
+defensePCAdata <- defensedata[c("Species", "Changeavtemp", "Changetempvar", "Changetemprange", "Changeav", "Changevar", "Changerange", "Changedrought", "Changemaxseasonal", "Changeminseasonal", "Changeheatwave", "Changevpd", "Changemaxdryspell", "phenolicsLRR", "lipidsLRR", "thicknessLRR", "C.N.LRR", "ashLRR")]
+
+```
+
+A few species have no data at all (due to lack of germination or death in glasshouse). These species we will remove as they are of no use in a PCA. A few remaining species will need some data imputation as they have a missing value here and there.
+
+Create a wide data frame so that each species gets a PCA for the three variables
+
+
+```{r}
+#select the data of species and the five traits
+
+defensesPCAdata1 <- defensePCAdata[c("Species", "phenolicsLRR", "lipidsLRR", "thicknessLRR", "C.N.LRR", "ashLRR")]
+
+```
+
+Now I want to remove the species that have NAs across all three leaf economic traits - these cannot be imputed and do not contribute any data
+
+```{r}
+defensesPCAdataspecies <- filter(defensesPCAdata1, Species != "Acacia aneura" & Species != "Acronychia imperforata" & Species != "Allocasuarina monilifera" & Species != "Austrostipa densiflora" & Species != "Callitris glaucophylla" & Species != "Crowea exalata" & Species != "Eucalyptus fastigata" & Species != "Eucalyptus langleyi" & Species != "Eucalyptus pauciflora" & Species != "Gompholobium latifolium" & Species != "Grevillea mucronulata" & Species != "Polycalymma stuartii" & Species != "Xerochrysum viscosum")
+
+defensesPCAdatafinal <- defensesPCAdataspecies %>% select(2:6) ## selecting only the numeric columns
+```
+
+Run a PCA analysis on the defense trait variables 
+```{r}
+defensesPCAimputed <- imputePCA(defensesPCAdatafinal)
+
+defenses.PCA <- prcomp(t(defensesPCAimputed$completeObs))
+
+plot(defenses.PCA)
+summary(defenses.PCA)
+str(defenses.PCA)
+```
+
+Save that PCA analysis as a dataframe and bind with the species names and data 
+
+```{r}
+defensemetric1 <- cbind(defensesPCAdataspecies, defenses.PCA$rotation) #for some reason the function merge adds a tgonne of duplicated rows so now I remove the duplicated rows:
+defensemetric <- left_join(defensemetric1, defensePCAdata, by = "Species")
+
+#and now I wanna remove the species that don't have the PCA data (didn't have any data)
+
+defensemetric <- filter(defensemetric, Species != "Acacia aneura" & Species != "Acronychia imperforata" & Species != "Allocasuarina monilifera" & Species != "Austrostipa densiflora" & Species != "Callitris glaucophylla" & Species != "Crowea exalata" & Species != "Eucalyptus fastigata" & Species != "Eucalyptus langleyi" & Species != "Eucalyptus pauciflora" & Species != "Gompholobium latifolium" & Species != "Grevillea mucronulata" & Species != "Polycalymma stuartii" & Species != "Xerochrysum viscosum")
+
+```
+
+save that data as a csv to use in further analysis
+
+```{r}
+write.csv(defensemetric, "defensemetric.csv")
+```
+

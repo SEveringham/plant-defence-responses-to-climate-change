@@ -1,0 +1,255 @@
+---
+title: "two way defense and means analysis"
+author: "Suz"
+date: "10 November 2020"
+output: html_document
+---
+
+Libraries required
+
+```{r}
+library(ggplot2)
+library(metafor)
+library(dplyr)
+library(gridExtra)
+```
+
+Read in main data sheet for analyses
+
+```{r}
+defensedata <- read.csv("defensesdatafull.csv")
+```
+
+1. C:N vs mean temperature
+
+```{r}
+C.N.temp <- rma(yi=C.N.LRR, vi = C.N.vi, mods = Changeavtemp, data = defensedata)
+```
+```{r}
+print(C.N.temp)
+```
+
+2. C:N to mean precipitation
+
+```{r}
+C.N.precipt <- rma(yi=C.N.LRR, vi = C.N.vi, mods = Changeav, data = defensedata)
+```
+```{r}
+print(C.N.precipt)
+```
+
+3. Ash vs mean temperature
+
+```{r}
+ash.temp <- rma(yi=ashLRR, vi = ash.vi, mods = Changeavtemp, data = defensedata)
+```
+```{r}
+print(ash.temp)
+```
+
+4. Ash vs. mean precip
+
+```{r}
+ashprecipt <- rma(yi=ashLRR, vi = ash.vi, mods = Changeav, data = defensedata)
+```
+```{r}
+print(ashprecipt)
+```
+
+5. Lipids vs mean temp
+
+```{r}
+lipids.temp <- rma(yi=lipidsLRR, vi = lipids.vi, mods = Changeavtemp, data = defensedata)
+```
+```{r}
+print(lipids.temp)
+```
+6. Lipids vs mean precip
+
+```{r}
+lipidsprecipt <- rma(yi=lipidsLRR, vi = lipids.vi, mods = Changeav, data = defensedata)
+```
+```{r}
+print(lipidsprecipt)
+```
+
+7. Phenolics vs mean temp
+
+```{r}
+phenolics.temp <- rma(yi=phenolicsLRR, vi = phenolics.vi, mods = Changeavtemp, data = defensedata)
+```
+```{r}
+print(phenolics.temp)
+```
+
+8. Phenolics vs mean precip
+
+```{r}
+phenolicsprecipt <- rma(yi=phenolicsLRR, vi = phenolics.vi, mods = Changeav, data = defensedata)
+```
+```{r}
+print(phenolicsprecipt)
+```
+
+Plotting relationships for figure 1
+- Each relationship is plotted one by one between mean temperature and the leaf trait change metric and mean precipitation and the leaf trait change metric
+- Colour scheme for manuscripts is lightsalmon3 and darkseagreen4
+- combine all plots together
+- save tiff
+
+1. Plots for both relationships of C:N
+
+```{r}
+C.N.tempplot <- ggplot(defensedata, aes(Changeavtemp, C.N.LRR)) + 
+  geom_point(colour="darkseagreen4", size=4) +
+  labs(cex=15, x="", y="Change in C:N") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.3, size=1) +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.3, size=1) +
+  theme_bw() +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text.y = element_text(size=18)) +
+  theme(axis.text.x = element_blank())
+plot(C.N.tempplot)
+
+C.N.precipplot <- ggplot(defensedata, aes(Changeav, C.N.LRR)) + ##Changeav is change in average precipitation
+  geom_point(colour="darkseagreen4", size=4) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.3, size=1) +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.3, size=1) +
+  labs(cex=8, x="", y="") +
+  theme_bw() +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text = element_blank())
+plot(C.N.precipplot)
+```
+
+2. Plots for both relationships for Ash
+
+```{r}
+ashtempplot <- ggplot(defensedata, aes(Changeavtemp, ashLRR)) + 
+  geom_point(colour="darkseagreen4", size=4) +
+  labs(cex=15, x="", y="Change in Ash Content") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.3, size=1) +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.3, size=1) +
+  theme_bw() +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text.y = element_text(size=18)) +
+  theme(axis.text.x = element_blank())
+plot(ashtempplot)
+
+ashprecipplot <- ggplot(defensedata, aes(Changeav, ashLRR)) + ##Changeav is change in average precipitation
+  geom_point(colour="darkseagreen4", size=4) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.3, size=1) +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.3, size=1) +
+  labs(cex=8, x="", y="") +
+  theme_bw() +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text = element_blank())
+plot(C.N.precipplot)
+```
+
+3. Both relationships for Lipids
+
+```{r}
+lipidstempplot <- ggplot(defensedata, aes(Changeavtemp, lipidsLRR)) + 
+  geom_point(colour="darkseagreen4", size=4) + 
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.3, size=1) +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.3, size=1) +
+  labs(cex=15, x="", y="Change in Lipids") +
+  theme_bw() +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text.y = element_text(size=18)) +
+  theme(axis.text.x = element_blank())
+plot(lipidstempplot)
+
+lipidsprecipplot <- ggplot(defensedata, aes(Changeav, lipidsLRR)) + ##Changeav is change in average precipitation
+  geom_point(colour="darkseagreen4", size=4) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.3, size=1) +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.3, size=1) +
+  labs(cex=8, x="", y="") +
+  theme_bw() +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text = element_blank())
+plot(lipidsprecipplot)
+```
+
+4. Both plots for relationships of phenolics
+
+```{r}
+phenolicstempplot <- ggplot(defensedata, aes(Changeavtemp, phenolicsLRR)) + 
+  geom_point(colour="darkseagreen4", size=4) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.3, size=1) +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.3, size=1) +
+  labs(cex=15, x="Change in mean temperature", y="Change in Phenolics") +
+  theme_bw() +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text.y = element_text(size=18)) +
+  theme(axis.text.x = element_text(size=18))
+plot(phenolicstempplot)
+
+phenolicsprecipplot <- ggplot(defensedata, aes(Changeav, phenolicsLRR)) + ##Changeav is change in average precipitation
+  geom_point(colour="darkseagreen4", size=4) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.3, size=1) +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.3, size=1) +
+  labs(cex=8, x="Change in mean precipitation", y="") +
+  theme_bw() +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(axis.text.x=element_text(size=18)) +
+  theme(axis.text.y =element_blank()) +
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5))
+plot(phenolicsprecipplot)
+```
+
+Stitch all plots together 
+
+```{r}
+figure1 <- grid.arrange(C.N.tempplot, C.N.precipplot,
+                        ashtempplot, ashprecipplot,
+                        lipidstempplot, lipidsprecipplot,
+                        phenolicstempplot, phenolicsprecipplot, ncol=2)
+```
+
+And save the plot
+
+```{r}
+ggsave(
+  "figure2.tiff",
+  plot=figure1,
+  device = "tiff",
+  width=12,
+  height=16,
+  dpi=200
+)
+```
+
+

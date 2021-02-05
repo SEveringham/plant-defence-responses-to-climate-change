@@ -1,0 +1,110 @@
+---
+title: "reshaping data for defenses analysis"
+author: "Suz"
+date: "9 November 2020"
+output: html_document
+---
+
+Libraries required
+
+```{r}
+library(plyr)
+library(dplyr)
+library(reshape2)
+library(data.table)
+library(metafor)
+```
+
+Read in data
+```{r}
+phenolics <- read.csv("phenolics.csv")
+lipids <- read.csv("lipids.csv") %>%
+  rename(Species = X)
+Leafthickness <- read.csv("Leafthickness.csv")
+carbontonitrogen <- read.csv("carbontonitrogen.csv")
+ash <- read.csv("ash.csv")
+tempdata <- read.csv("temperature_data_SuzEveringham.csv")
+precipdata <- read.csv("precipitation_data_SuzEveringham.csv")
+heatwavedata <- read.csv("heatwave_duration_data_SuzEveringham.csv")
+aridityandvpddata <- read.csv("aridityandvpddata.csv", header=T)
+CO2data <- read.csv("CO2.csv")
+```
+
+Tidying data for phenolics
+
+```{r}
+phenolics <- phenolics[-(61:62)] # removing two random empty rows 
+
+phenolics1 <- ddply(phenolics, c("Species", "ModOld", "Initialphenolics"), summarise, PhenolicsSD = (Initialphenolics)*0, phenolicsnumber = dplyr::n()) #just trying to do a trick to make SD = 0 to work in metafor,               otherwise doing SD normally gives NAs
+
+phenolics2 <- dcast(setDT(phenolics1), Species ~ ModOld, value.var = c("Initialphenolics", "PhenolicsSD", "phenolicsnumber")) %>%
+  mutate(phenolicsLRR = log(Initialphenolics_Mod/Initialphenolics_Old))
+
+phenolicsdata <- escalc(measure="ROM", n1i = phenolicsnumber_Mod, n2i = phenolicsnumber_Old, m1i = Initialphenolics_Mod, m2i = Initialphenolics_Old, sd1i = PhenolicsSD_Mod, sd2i = PhenolicsSD_Old, data = phenolics2)
+
+phenolicsdata$vi <- phenolicsdata$vi + 1 ##metafor handles a constant number of 1 for variance                                    #but wont really handle a constant variance of 0
+```
+
+Repeat for lipids
+
+```{r}
+lipids1 <- ddply(lipids, c("Species", "ModOld", "Lipids.mg."), summarise, lipidsSD = (Lipids.mg.)*0, lipidsnumber = dplyr::n())
+
+lipids2 <- dcast(setDT(lipids1), Species ~ ModOld, value.var = c("Lipids.mg.", "lipidsSD", "lipidsnumber")) %>% mutate(lipidsLRR = log(Lipids.mg._Mod/Lipids.mg._Old))
+
+lipidsdata <- escalc(measure="ROM", n1i = lipidsnumber_Mod, n2i = lipidsnumber_Old, m1i = Lipids.mg._Mod, m2i = Lipids.mg._Old, sd1i = lipidsSD_Mod, sd2i = lipidsSD_Old, data = lipids2)
+
+lipidsdata$vi <- lipidsdata$vi + 1
+```
+
+Repeat for leaf thickness
+
+```{r}
+leafthickness1 <- ddply(Leafthickness, c("Species", "ModOld"), summarise,  
+      avg.thickness = mean(averagethickness), thicknessSD = sd(averagethickness), thicknessnumber = dplyr::n()) #thickness uses multiple data points for each species (therefore this data cleaning method uses the old way - see Everingham et al. 2020, Ecology)
+
+leafthickness2 <- dcast(setDT(leafthickness1), Species ~ ModOld, value.var = c("avg.thickness", "thicknessSD", "thicknessnumber")) %>% mutate(thicknessLRR = log(avg.thickness_Mod/avg.thickness_Old))
+
+thicknessdata <- escalc(measure="ROM", n1i = thicknessnumber_Mod, n2i = thicknessnumber_Old, m1i = avg.thickness_Mod, m2i = avg.thickness_Old, sd1i = thicknessSD_Mod, sd2i = thicknessSD_Old, data = leafthickness2)
+
+thicknessdata$vi <- thicknessdata$vi + 1
+```
+
+Repeat for carbon to nitrogen
+
+```{r}
+carbontonitrogen1 <- ddply(carbontonitrogen, c("Species", "ModOld", "C.N"), summarise, C.N.SD = (C.N)*0, C.N.number = dplyr::n())
+
+carbontonitrogen2 <- dcast(setDT(carbontonitrogen1), Species ~ ModOld, value.var = c("C.N", "C.N.SD", "C.N.number")) %>% mutate(C.N.LRR = log(C.N_Mod/C.N_Old))
+
+carbontonitrogendata <- escalc(measure="ROM", n1i = C.N.number_Mod, n2i = C.N.number_Old, m1i = C.N_Mod, m2i = C.N_Old, sd1i = C.N.SD_Mod, sd2i = C.N.SD_Old, data = carbontonitrogen2)
+
+carbontonitrogendata$vi <- carbontonitrogendata$vi + 1
+```
+
+Repeat for ash
+
+```{r}
+ash1 <- ddply(ash, c("Species", "ModOld", "Ash"), summarise, ashSD = (Ash)*0, ashnumber = dplyr::n())
+
+ash2 <- dcast(setDT(ash1), Species ~ ModOld, value.var = c("Ash", "ashSD", "ashnumber")) %>% mutate(ashLRR = log(Ash_Mod/Ash_Old))
+
+ashdata <- escalc(measure="ROM", n1i = ashnumber_Mod, n2i = ashnumber_Old, m1i = Ash_Mod, m2i = Ash_Old, sd1i = ashSD_Mod, sd2i = ashSD_Old, data = ash2)
+
+ashdata$vi <- ashdata$vi + 1
+```
+
+Now combine all!
+
+```{r}
+finaldata <- list(tempdata, precipdata, heatwavedata, aridityandvpddata, CO2data, phenolicsdata, lipidsdata, thicknessdata, carbontonitrogendata, ashdata) %>%
+  purrr::reduce(left_join, by = "Species") %>%
+  rename(phenolics.vi = vi.x, lipids.vi = vi.y, thickness.vi = vi.x.x, C.N.vi = vi.y.y, ash.vi = vi)
+```
+
+Now saving as a csv file for further analyses
+
+```{r}
+write.csv(finaldata, "defensesdatafull.csv")
+```
+

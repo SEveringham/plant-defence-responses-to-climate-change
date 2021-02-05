@@ -1,0 +1,147 @@
+---
+title: "meta analysis for all defense traits"
+author: "Suz"
+date: "24 January 2021"
+output: html_document
+---
+
+libraries required
+
+```{r}
+library(dplyr)
+library(metafor)
+library(glmulti)
+library(ggplot2)
+library(gridExtra)
+```
+
+Read in data
+
+```{r}
+defensesdata <- read.csv("defensesdatafull.csv")
+defensesmetric <- read.csv("defensemetric.csv") %>%
+  select(Species, PC1)
+
+#add the metric for defense to the 
+defensesdata <- left_join(defensesdata, defensesmetric, by = "Species")
+```
+
+Create create function for rma.glmulti- rma with yi and vi
+
+```{r}
+rma.glmulti <- function(formula, vi, data, ...) {
+  rma(as.formula(paste(deparse(formula))), vi=vi, data=data, method = "ML", ...)
+}
+```
+
+Also create a function for getting the moderator importance and significance averaged across all models
+```{r}
+setMethod('getfit', 'rma.uni', function(object, ...){
+  if (object$test == "z") {
+    cbind(estimate = coef(object), se = sqrt(diag(vcov(object))), df= 10000)
+  } else {
+    cbind(estimate = coef(object), se = sqrt(diag(vcov(object))), df= object$k - object$p)
+  }
+})
+```
+
+Run meta-analytic multi-model selection on each defense trait and the metric for all defenses against all climate variables
+
+1. C:N
+```{r}
+C.N.modelselection <- glmulti(C.N.LRR ~ Changeavtemp + Changetemprange + Changetempvar + Changeav + Changerange + Changevar + Changemaxseasonal + Changeminseasonal + Changedrought + Changeheatwave + Changevpd + Changemaxdryspell + Changedrought, vi = 1, data=defensesdata, level=1, fitfunction=rma.glmulti, crit="aicc", confsetsize = 8192)
+
+summary(C.N.modelselection@objects[[1]])
+print(C.N.modelselection)
+plot(C.N.modelselection)
+
+mmi <- as.data.frame(coef(C.N.modelselection))
+mmi <- data.frame(Estimate=mmi$Est, SE=sqrt(mmi$Uncond), Importance=mmi$Importance, row.names=row.names(mmi))
+mmi$z <- mmi$Estimate / mmi$SE
+mmi$p <- 2*pnorm(abs(mmi$z), lower.tail=FALSE)
+names(mmi) <- c("Estimate", "Std. Error", "Importance", "z value", "Pr(>|z|)")
+mmi$ci.lb <- mmi[[1]] - qnorm(.975) * mmi[[2]]
+mmi$ci.ub <- mmi[[1]] + qnorm(.975) * mmi[[2]]
+mmi <- mmi[order(mmi$Importance, decreasing=TRUE), c(1,2,4:7,3)]
+round(mmi, 4)
+```
+
+2. Lipids
+
+```{r}
+lipidsmodelselection <- glmulti(lipidsLRR ~ Changeavtemp + Changetemprange + Changetempvar + Changeav + Changerange + Changevar + Changemaxseasonal + Changeminseasonal + Changedrought + Changeheatwave + Changevpd + Changemaxdryspell + Changedrought, vi = 1, data=defensesdata, level=1, fitfunction=rma.glmulti, crit="aicc", confsetsize = 8192)
+
+summary(lipidsmodelselection@objects[[1]])
+print(lipidsmodelselection)
+plot(lipidsmodelselection)
+
+mmi <- as.data.frame(coef(lipidsmodelselection))
+mmi <- data.frame(Estimate=mmi$Est, SE=sqrt(mmi$Uncond), Importance=mmi$Importance, row.names=row.names(mmi))
+mmi$z <- mmi$Estimate / mmi$SE
+mmi$p <- 2*pnorm(abs(mmi$z), lower.tail=FALSE)
+names(mmi) <- c("Estimate", "Std. Error", "Importance", "z value", "Pr(>|z|)")
+mmi$ci.lb <- mmi[[1]] - qnorm(.975) * mmi[[2]]
+mmi$ci.ub <- mmi[[1]] + qnorm(.975) * mmi[[2]]
+mmi <- mmi[order(mmi$Importance, decreasing=TRUE), c(1,2,4:7,3)]
+round(mmi, 4)
+```
+
+3. Ash
+
+```{r}
+ashmodelselection <- glmulti(ashLRR ~ Changeavtemp + Changetemprange + Changetempvar + Changeav + Changerange + Changevar + Changemaxseasonal + Changeminseasonal + Changedrought + Changeheatwave + Changevpd + Changemaxdryspell + Changedrought, vi = 1, data=defensesdata, level=1, fitfunction=rma.glmulti, crit="aicc", confsetsize = 8192)
+
+summary(ashmodelselection@objects[[1]])
+print(ashmodelselection)
+plot(ashmodelselection)
+
+mmi <- as.data.frame(coef(ashmodelselection))
+mmi <- data.frame(Estimate=mmi$Est, SE=sqrt(mmi$Uncond), Importance=mmi$Importance, row.names=row.names(mmi))
+mmi$z <- mmi$Estimate / mmi$SE
+mmi$p <- 2*pnorm(abs(mmi$z), lower.tail=FALSE)
+names(mmi) <- c("Estimate", "Std. Error", "Importance", "z value", "Pr(>|z|)")
+mmi$ci.lb <- mmi[[1]] - qnorm(.975) * mmi[[2]]
+mmi$ci.ub <- mmi[[1]] + qnorm(.975) * mmi[[2]]
+mmi <- mmi[order(mmi$Importance, decreasing=TRUE), c(1,2,4:7,3)]
+round(mmi, 4)
+```
+
+4. Phenolics
+
+```{r}
+phenolicsmodelselection <- glmulti(phenolicsLRR ~ Changeavtemp + Changetemprange + Changetempvar + Changeav + Changerange + Changevar + Changemaxseasonal + Changeminseasonal + Changedrought + Changeheatwave + Changevpd + Changemaxdryspell + Changedrought, vi = 1, data=defensesdata, level=1, fitfunction=rma.glmulti, crit="aicc", confsetsize = 8192)
+
+summary(phenolicsmodelselection@objects[[1]])
+print(phenolicsmodelselection)
+plot(phenolicsmodelselection)
+
+mmi <- as.data.frame(coef(phenolicsmodelselection))
+mmi <- data.frame(Estimate=mmi$Est, SE=sqrt(mmi$Uncond), Importance=mmi$Importance, row.names=row.names(mmi))
+mmi$z <- mmi$Estimate / mmi$SE
+mmi$p <- 2*pnorm(abs(mmi$z), lower.tail=FALSE)
+names(mmi) <- c("Estimate", "Std. Error", "Importance", "z value", "Pr(>|z|)")
+mmi$ci.lb <- mmi[[1]] - qnorm(.975) * mmi[[2]]
+mmi$ci.ub <- mmi[[1]] + qnorm(.975) * mmi[[2]]
+mmi <- mmi[order(mmi$Importance, decreasing=TRUE), c(1,2,4:7,3)]
+round(mmi, 4)
+```
+
+4. Defenses metric
+
+```{r}
+overallmodelselection <- glmulti(PC1 ~ Changeavtemp + Changetemprange + Changetempvar + Changeav + Changerange + Changevar + Changemaxseasonal + Changeminseasonal + Changedrought + Changeheatwave + Changevpd + Changemaxdryspell + Changedrought, vi = 1, data=defensesdata, level=1, fitfunction=rma.glmulti, crit="aicc", confsetsize = 8192)
+
+summary(overallmodelselection@objects[[1]])
+print(overallmodelselection)
+plot(overallmodelselection)
+
+mmi <- as.data.frame(coef(overallmodelselection))
+mmi <- data.frame(Estimate=mmi$Est, SE=sqrt(mmi$Uncond), Importance=mmi$Importance, row.names=row.names(mmi))
+mmi$z <- mmi$Estimate / mmi$SE
+mmi$p <- 2*pnorm(abs(mmi$z), lower.tail=FALSE)
+names(mmi) <- c("Estimate", "Std. Error", "Importance", "z value", "Pr(>|z|)")
+mmi$ci.lb <- mmi[[1]] - qnorm(.975) * mmi[[2]]
+mmi$ci.ub <- mmi[[1]] + qnorm(.975) * mmi[[2]]
+mmi <- mmi[order(mmi$Importance, decreasing=TRUE), c(1,2,4:7,3)]
+round(mmi, 4)
+```

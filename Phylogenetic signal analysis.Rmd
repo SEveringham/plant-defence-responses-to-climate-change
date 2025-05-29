@@ -1,0 +1,40 @@
+---
+title: "testing phylogenetic signal in defence trait changes"
+output: html_document
+date: "2025-05-29"
+---
+
+Libraries required
+```{r}
+library(tidyverse)
+library(ggtree)
+library(viridis)
+library(phylobase)
+library(phylosignal)
+library(readr)
+library(phytools)
+
+```
+Read in my data
+```{r}
+defencedata <- read.csv("defensesdatafull.csv") %>%
+        mutate(Species=as.character(Species)) %>%
+        filter(Species!="Acacia hakeoidesT") %>%
+        mutate(Species = ifelse(Species=="Acacia hakeoidesB", "Acacia hakeoides", Species))
+```
+
+Read in the phylogenetic tree
+```{r}
+bigtree <- read.tree(file = "PhytoPhylo.tre") #reading tree
+specieslist <- read.csv("specieslist.csv", header = T) #reading species list
+nodes <- read_table("nodes.csv") #reading nodes - nodes were downloaded from the S.phylomaker github page
+source("https://raw.githubusercontent.com/jinyizju/S.PhyloMaker/master/R_codes%20for%20S.PhyloMaker")
+resultphylo <- S.PhyloMaker(spList = specieslist, tree = bigtree, nodes = nodes, scenarios = "S3") #pruning tree
+str(resultphylo) #looking at results of my tree
+```
+
+Plot the tree
+```{r}
+#plotting tree
+tiff("mytree.tiff", width = 6, height = 8, units = 'in', res = 300)
+plot(resultphylo$Scenario.3,main="Scenarion Three") ## plott

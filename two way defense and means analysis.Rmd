@@ -20,6 +20,252 @@ Read in main data sheet for analyses
 defensedata <- read.csv("defensesdatafull.csv")
 ```
 
+First compare changes through time in the defence traits (absolute change between historic and modern populations)
+
+```{r}
+#reshape data to visualise the differences in trait changes through time
+defensecahngethroughtimedata <- defensedata %>%
+  select(Species, thicknessLRR, C.N.LRR, ashLRR, lipidsLRR, phenolicsLRR) %>%
+  pivot_longer(!Species, names_to = "trait", values_to = "LRR") %>%
+  mutate(absolutetraitchange = abs(LRR))
+
+## plot a figure with these differences in trait changes
+defencetraitchangeplot <- ggplot(defensecahngethroughtimedata, aes(x=trait, y = absolutetraitchange)) +
+  geom_quasirandom(color = "darkseagreen4", size = 4) +
+  stat_summary(
+    fun = mean,
+    geom = "point",
+    shape = 15,         # Square shape
+    size = 6,
+    color = "lightsalmon3"
+  ) +
+  stat_summary(
+    fun.data = mean_se,
+    geom = "errorbar",
+    width = 0.4,
+    color = "lightsalmon3"
+  ) +
+  theme_classic(base_size  = 20)
+
+defencetraitchangeplot
+
+## save this plot
+ggsave(filename = "traitchangethroughtime.tiff", plot=defencetraitchangeplot, device="tiff", dpi=100, width=15, height=10, units="in")
+```
+
+Then look at correlations between climate of the seed collection and the trait
+```{r}
+#Some hectic dataframe wrangling to get this where it needs to be
+defenseclimatespatialpatternssuffix <- defensedata %>%
+  mutate(Olddryspell = pmax(Old.max.Ndays.dry.spell.y1...., Old.max.Ndays.dry.spell.y2...., Old.max.Ndays.dry.spell.y3...., Old.max.Ndays.dry.spell.y4...., Old.max.Ndays.dry.spell.y5....)) %>%
+  mutate(Moddryspell = pmax(Modern.max.Ndays.dry.spell.y1...., Modern.max.Ndays.dry.spell.y2...., Modern.max.Ndays.dry.spell.y3...., Modern.max.Ndays.dry.spell.y4...., Modern.max.Ndays.dry.spell.y5....)) %>%
+  select(Species, Oldavtemp, Oldtempvar, Oldtemprange, Modavtemp, Modtempvar, Modtemprange, Oldmonth, Oldvar, Oldrange, Oldmaxdrought, Oldaverageseasonalprecipmax, Oldaverageseasonalprecipmin, Modmonth, Modvar, Modrange, Modmaxdrought, Modernprecipseasonalmaxaverage, Modernprecipminseasonalaverage, Oldheatwave, Modheatwave, Olddryspell, Moddryspell, Oldavvpd, Modavtemp, Initialphenolics_Mod, Initialphenolics_Old, Lipids.mg._Mod, Lipids.mg._Old, avg.thickness_Mod, avg.thickness_Old, C.N_Mod, C.N_Old, Ash_Mod, Ash_Old) %>%
+  pivot_longer(
+    cols = matches("(_|\\.)?(Old|Mod)$"),
+    names_to = c("variable", "source"),
+    names_pattern = "^(.*)[._](Old|Mod)$"
+  ) %>%
+  select(Species, variable, source, value)
+
+
+defenseclimatespatialpatternsprefix <- defensedata %>%
+  mutate(Olddryspell = pmax(Old.max.Ndays.dry.spell.y1...., Old.max.Ndays.dry.spell.y2...., Old.max.Ndays.dry.spell.y3...., Old.max.Ndays.dry.spell.y4...., Old.max.Ndays.dry.spell.y5....)) %>%
+  mutate(Moddryspell = pmax(Modern.max.Ndays.dry.spell.y1...., Modern.max.Ndays.dry.spell.y2...., Modern.max.Ndays.dry.spell.y3...., Modern.max.Ndays.dry.spell.y4...., Modern.max.Ndays.dry.spell.y5....)) %>%
+  select(Species, Oldavtemp, Oldtempvar, Oldtemprange, Modavtemp, Modtempvar, Modtemprange, Oldmonth, Oldvar, Oldrange, Oldmaxdrought, Oldaverageseasonalprecipmax, Oldaverageseasonalprecipmin, Modmonth, Modvar, Modrange, Modmaxdrought, Modernprecipseasonalmaxaverage, Modernprecipminseasonalaverage, Oldheatwave, Modheatwave, Olddryspell, Moddryspell, Oldavvpd, Modavtemp, Initialphenolics_Mod, Initialphenolics_Old, Lipids.mg._Mod, Lipids.mg._Old, avg.thickness_Mod, avg.thickness_Old, C.N_Mod, C.N_Old, Ash_Mod, Ash_Old) %>%
+  pivot_longer(
+    cols = matches("^(Old|Mod)"),
+    names_to = c("source", "variable"),
+    names_pattern = "^(Old|Mod)(.*)"
+  ) %>%
+  select(Species, variable, source, value)
+
+defenseclimatespatialpatterns <- bind_rows(defenseclimatespatialpatternssuffix, defenseclimatespatialpatternsprefix) %>%
+  pivot_wider(
+    names_from = variable,
+    values_from = value,
+    id_cols = c(Species, source)
+  ) %>%
+  mutate(avg.thickness = log10(avg.thickness))
+
+#now run linear regressions on the defence trait versus climate variables
+response_vars <- c("Initialphenolics", "Lipids.mg.", "avg.thickness", "C.N", "Ash")
+predictor_vars <- c("avtemp", "tempvar", "temprange", "month", "var",
+                    "range", "maxdrought", "averageseasonalprecipmax", "averageseasonalprecipmin", "heatwave",
+                    "dryspell", "avvpd")
+
+# Run linear regressions for each response x predictor variable combination
+results <- map_dfr(response_vars, function(response) {
+  map_dfr(predictor_vars, function(predictor) {
+    # Perform the regression
+    model <- lm(as.formula(paste(response, "~", predictor)), data = defenseclimatespatialpatterns)
+    
+    # Tidy the results to extract model coefficients and p-values
+    tidy_model <- tidy(model)
+    glance_model <- glance(model)
+    
+    # Add the response and predictor variables to the output
+    tidy_model %>%
+      mutate(response = response, predictor = predictor, r.squared = glance_model$r.squared)
+  })
+})
+
+# View the results
+print(results)
+
+#save the results
+write.csv(results, file = "spatialclimateregressions.csv", row.names = FALSE)
+```
+
+Create a figure for the mean temp and precip versus each defense trait (10 panel figure)
+```{r}
+#C:N
+C.N.tempplot <- ggplot(defenseclimatespatialpatterns, aes(avtemp, C.N)) + 
+  geom_point(colour="darkseagreen4", size=4) +
+  labs(cex=15, x="", y="C:N") +
+  theme_bw() +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text = element_text(size=18))
+plot(C.N.tempplot)
+
+C.N.precipplot <- ggplot(defenseclimatespatialpatterns, aes(month, C.N)) + 
+  geom_point(colour="darkseagreen4", size=4) +
+  labs(cex=15, x="", y="C:N") +
+  theme_bw() +
+  scale_x_continuous(limits = c(0.8, 4.5)) +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text = element_text(size=18))
+plot(C.N.precipplot)
+
+#Ash
+Ash.tempplot <- ggplot(defenseclimatespatialpatterns, aes(avtemp, Ash)) + 
+  geom_point(colour="darkseagreen4", size=4) +
+  labs(cex=15, x="", y="ash") +
+  geom_smooth(method = "lm", colour = "lightsalmon3", se = F) +
+  theme_bw() +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text = element_text(size=18))
+plot(Ash.tempplot)
+
+Ash.precipplot <- ggplot(defenseclimatespatialpatterns, aes(month, Ash)) + 
+  geom_point(colour="darkseagreen4", size=4) +
+  labs(cex=15, x="", y="ash") +
+  theme_bw() +
+  scale_x_continuous(limits = c(0.8, 4.5)) +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text = element_text(size=18))
+plot(Ash.precipplot)
+
+#Lipids
+Lipids.tempplot <- ggplot(defenseclimatespatialpatterns, aes(avtemp, Lipids.mg.)) + 
+  geom_point(colour="darkseagreen4", size=4) +
+  labs(cex=15, x="", y="lipids") +
+  theme_bw() +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text = element_text(size=18))
+plot(Lipids.tempplot)
+
+Lipids.precipplot <- ggplot(defenseclimatespatialpatterns, aes(month, Lipids.mg.)) + 
+  geom_point(colour="darkseagreen4", size=4) +
+  labs(cex=15, x="", y="lipids") +
+  theme_bw() +
+  scale_x_continuous(limits = c(0.8, 4.5)) +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text = element_text(size=18))
+plot(Lipids.precipplot)
+
+#phenolics
+Phenolics.tempplot <- ggplot(defenseclimatespatialpatterns, aes(avtemp, Initialphenolics)) + 
+  geom_point(colour="darkseagreen4", size=4) +
+  labs(cex=15, x="", y="phenolics") +
+  theme_bw() +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text = element_text(size=18))
+plot(Phenolics.tempplot)
+
+Phenolics.precipplot <- ggplot(defenseclimatespatialpatterns, aes(month, Initialphenolics)) + 
+  geom_point(colour="darkseagreen4", size=4) +
+  geom_smooth(method = "lm", colour = "lightsalmon3", se = F) +
+  labs(cex=15, x="", y="phenolics") +
+  theme_bw() +
+  scale_x_continuous(limits = c(0.8, 4.5)) +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text = element_text(size=18))
+plot(Phenolics.precipplot)
+
+#leaf thickness
+thickness.tempplot <- ggplot(defenseclimatespatialpatterns, aes(avtemp, avg.thickness)) + 
+  geom_point(colour="darkseagreen4", size=4) +
+  labs(cex=15, x="", y="thickness") +
+  theme_bw() +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text = element_text(size=18))
+plot(thickness.tempplot)
+
+thickness.precipplot <- ggplot(defenseclimatespatialpatterns, aes(month, avg.thickness)) + 
+  geom_point(colour="darkseagreen4", size=4) +
+  labs(cex=15, x="", y="thickness") +
+  theme_bw() +
+  scale_x_continuous(limits = c(0.8, 4.5)) +
+  theme(plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank() )+
+  theme(panel.border= element_blank())+
+  theme(axis.line = element_line(color="black", size = 0.5)) +
+  theme(axis.text = element_text(size=18))
+plot(thickness.precipplot)
+
+#save all these
+ggsave(filename = "CNtempplot.tiff", plot=C.N.tempplot, device="tiff", width=8, height=5, units="in")
+ggsave(filename = "CNprecipplot.tiff", plot=C.N.precipplot, device="tiff", width=8, height=5, units="in")
+ggsave(filename = "ashtempplot.tiff", plot=Ash.tempplot, device="tiff", width=8, height=5, units="in")
+ggsave(filename = "ashprecipplot.tiff", plot=Ash.precipplot, device="tiff", width=8, height=5, units="in")
+ggsave(filename = "lipidstempplot.tiff", plot=Lipids.tempplot, device="tiff", width=8, height=5, units="in")
+ggsave(filename = "lipidsprecipplot.tiff", plot=Lipids.precipplot, device="tiff", width=8, height=5, units="in")
+ggsave(filename = "phenolicstempplot.tiff", plot=Phenolics.tempplot, device="tiff", width=8, height=5, units="in")
+ggsave(filename = "phenolicsprecipplot.tiff", plot=Phenolics.precipplot, device="tiff", width=8, height=5, units="in")
+ggsave(filename = "thicknesstempplot.tiff", plot=thickness.tempplot, device="tiff", width=8, height=5, units="in")
+ggsave(filename = "thicknessprecipplot.tiff", plot=thickness.precipplot, device="tiff", width=8, height=5, units="in")
+
+```
+
+Now analyse the actual hypothesised relationships between mean temperature/precipitation CHANGE through time and Trait CHANGE through time
+
 1. C:N vs mean temperature
 
 ```{r}

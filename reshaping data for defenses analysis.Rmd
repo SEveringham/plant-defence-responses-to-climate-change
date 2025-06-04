@@ -23,6 +23,7 @@ lipids <- read.csv("lipids.csv") %>%
 Leafthickness <- read.csv("Leafthickness.csv")
 carbontonitrogen <- read.csv("carbontonitrogen.csv")
 ash <- read.csv("ash.csv")
+LMA <- read.csv("LMAdata.csv")
 tempdata <- read.csv("temperature_data_SuzEveringham.csv")
 precipdata <- read.csv("precipitation_data_SuzEveringham.csv")
 heatwavedata <- read.csv("heatwave_duration_data_SuzEveringham.csv")
@@ -33,7 +34,8 @@ CO2data <- read.csv("CO2.csv")
 Tidying data for phenolics
 
 ```{r}
-phenolics <- phenolics[-(61:62)] # removing two random empty rows 
+phenolics <- phenolics %>%
+  filter(!is.na(Sample.weight..mg.)) # removing two random empty rows 
 
 phenolics1 <- ddply(phenolics, c("Species", "ModOld", "Initialphenolics"), summarise, PhenolicsSD = (Initialphenolics)*0, phenolicsnumber = dplyr::n()) #just trying to do a trick to make SD = 0 to work in metafor,               otherwise doing SD normally gives NAs
 
@@ -61,7 +63,7 @@ Repeat for leaf thickness
 
 ```{r}
 leafthickness1 <- ddply(Leafthickness, c("Species", "ModOld"), summarise,  
-      avg.thickness = mean(averagethickness), thicknessSD = sd(averagethickness), thicknessnumber = dplyr::n()) #thickness uses multiple data points for each species (therefore this data cleaning method uses the old way - see Everingham et al. 2020, Ecology)
+      avg.thickness = mean(averagethickness), thicknessSD = sd(averagethickness), thicknessnumber = dplyr::n()) #thickness uses multiple data points for each species (therefore this data cleaning method uses the old way - see Everingham et al. 2021, Ecology)
 
 leafthickness2 <- dcast(setDT(leafthickness1), Species ~ ModOld, value.var = c("avg.thickness", "thicknessSD", "thicknessnumber")) %>% mutate(thicknessLRR = log(avg.thickness_Mod/avg.thickness_Old))
 
@@ -94,10 +96,12 @@ ashdata <- escalc(measure="ROM", n1i = ashnumber_Mod, n2i = ashnumber_Old, m1i =
 ashdata$vi <- ashdata$vi + 1
 ```
 
+
+
 Now combine all!
 
 ```{r}
-finaldata <- list(tempdata, precipdata, heatwavedata, aridityandvpddata, CO2data, phenolicsdata, lipidsdata, thicknessdata, carbontonitrogendata, ashdata) %>%
+finaldata <- list(tempdata, precipdata, heatwavedata, aridityandvpddata, CO2data, phenolicsdata, lipidsdata, thicknessdata, carbontonitrogendata, ashdata, LMA) %>%
   purrr::reduce(left_join, by = "Species") %>%
   rename(phenolics.vi = vi.x, lipids.vi = vi.y, thickness.vi = vi.x.x, C.N.vi = vi.y.y, ash.vi = vi)
 ```

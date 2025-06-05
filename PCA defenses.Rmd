@@ -19,11 +19,11 @@ Reading in Data created previously in rmarkdown
 defensedata <- read.csv("defensesdatafull.csv")
 ```
 
-Create a dataframe with just the three variables to see where the NAs lie 
+Create a dataframe with just the defence and climate variables to see where the NAs lie 
 
 ```{r}
 
-defensePCAdata <- defensedata[c("Species", "Changeavtemp", "Changetempvar", "Changetemprange", "Changeav", "Changevar", "Changerange", "Changedrought", "Changemaxseasonal", "Changeminseasonal", "Changeheatwave", "Changevpd", "Changemaxdryspell", "phenolicsLRR", "lipidsLRR", "thicknessLRR", "C.N.LRR", "ashLRR")]
+defensePCAdata <- defensedata[c("Species", "Changeavtemp", "Changetempvar", "Changetemprange", "Changeav", "Changevar", "Changerange", "Changedrought", "Changemaxseasonal", "Changeminseasonal", "Changeheatwave", "Changevpd", "Changemaxdryspell", "phenolicsLRR", "lipidsLRR", "thicknessLRR", "C.N.LRR", "ashLRR", "Initialphenolics_Mod", "Initialphenolics_Old", "Lipids.mg._Mod", "Lipids.mg._Old", "avg.thickness_Mod", "avg.thickness_Old", "C.N_Mod", "C.N_Old", "Ash_Mod", "Ash_Old", "avg.lma_Mod", "avg.lma_Old")]
 
 ```
 
@@ -33,46 +33,82 @@ Create a wide data frame so that each species gets a PCA for the three variables
 
 
 ```{r}
-#select the data of species and the five traits
+#select the data of species and the six traits measured at modern and old time points
 
-defensesPCAdata1 <- defensePCAdata[c("Species", "phenolicsLRR", "lipidsLRR", "thicknessLRR", "C.N.LRR", "ashLRR")]
+defensesPCAdata1 <- defensePCAdata[c("Species", "Initialphenolics_Mod", "Initialphenolics_Old", "Lipids.mg._Mod", "Lipids.mg._Old", "avg.thickness_Mod", "avg.thickness_Old", "C.N_Mod", "C.N_Old", "Ash_Mod", "Ash_Old", "avg.lma_Mod", "avg.lma_Old")]
 
 ```
 
 Now I want to remove the species that have NAs across all three leaf economic traits - these cannot be imputed and do not contribute any data
 
 ```{r}
-defensesPCAdataspecies <- filter(defensesPCAdata1, Species != "Acacia aneura" & Species != "Acronychia imperforata" & Species != "Allocasuarina monilifera" & Species != "Austrostipa densiflora" & Species != "Callitris glaucophylla" & Species != "Crowea exalata" & Species != "Eucalyptus fastigata" & Species != "Eucalyptus langleyi" & Species != "Eucalyptus pauciflora" & Species != "Gompholobium latifolium" & Species != "Grevillea mucronulata" & Species != "Polycalymma stuartii" & Species != "Xerochrysum viscosum")
+defensesPCAdataspecies <- defensesPCAdata1 %>%
+  filter(!if_all(
+    c("Initialphenolics_Mod", "Initialphenolics_Old",
+      "Lipids.mg._Mod", "Lipids.mg._Old",
+      "avg.thickness_Mod", "avg.thickness_Old",
+      "C.N_Mod", "C.N_Old",
+      "Ash_Mod", "Ash_Old",
+      "avg.lma_Mod", "avg.lma_Old"),
+    is.na
+  ))
 
-defensesPCAdatafinal <- defensesPCAdataspecies %>% select(2:6) ## selecting only the numeric columns
+defensesPCAdataMod <- defensesPCAdataspecies %>% select(c("Species", "Initialphenolics_Mod", "Lipids.mg._Mod", "avg.thickness_Mod", "C.N_Mod", "Ash_Mod", "avg.lma_Mod")) %>% ## selecting only the numeric columns that are from modern measurements
+  column_to_rownames(var = "Species")
+
+defensesPCAdataOld <- defensesPCAdataspecies %>% select(c("Species", "Initialphenolics_Old", "Lipids.mg._Old", "avg.thickness_Old", "C.N_Old", "Ash_Old", "avg.lma_Old")) %>% ## selecting only the numeric columns that are from modern measurements
+  column_to_rownames(var = "Species")
 ```
 
 Run a PCA analysis on the defense trait variables 
 ```{r}
-defensesPCAimputed <- imputePCA(defensesPCAdatafinal)
+#impute missing values where species have a few measurements missing
+defensesPCAimputedMod <- imputePCA(defensesPCAdataMod)
+defensesPCAimputedOld <- imputePCA(defensesPCAdataOld)
 
-defenses.PCA <- prcomp(t(defensesPCAimputed$completeObs))
+#run PCA for Modern plants
+defenses.PCA.Mod <- prcomp(defensesPCAimputedMod$completeObs)
+plot(defenses.PCA.Mod)
+biplot(defenses.PCA.Mod)
+summary(defenses.PCA.Mod)
+str(defenses.PCA.Mod)
 
-plot(defenses.PCA)
-summary(defenses.PCA)
-str(defenses.PCA)
+#run PCA for Old plants
+defenses.PCA.Old <- prcomp(defensesPCAimputedOld$completeObs)
+plot(defenses.PCA.Old)
+biplot(defenses.PCA.Old)
+summary(defenses.PCA.Old)
+str(defenses.PCA.Old)
 ```
 
 Save that PCA analysis as a dataframe and bind with the species names and data 
 
 ```{r}
-defensemetric1 <- cbind(defensesPCAdataspecies, defenses.PCA$rotation) #for some reason the function merge adds a tgonne of duplicated rows so now I remove the duplicated rows:
-defensemetric <- left_join(defensemetric1, defensePCAdata, by = "Species")
+#extracting the values from the PCA for modern plants
+ModernDefensePCA <- as.data.frame(defenses.PCA.Mod$x) %>%
+  select(PC1) %>%
+  rename(ModernPCA = PC1) %>%
+  rownames_to_column(var = "Species")
 
-#and now I wanna remove the species that don't have the PCA data (didn't have any data)
+#extracting the values from the PCA for historic plants
+OldDefensePCA <- as.data.frame(defenses.PCA.Old$x) %>%
+  select(PC1) %>%
+  rename(OldPCA = PC1)%>%
+  rownames_to_column(var = "Species")
 
-defensemetric <- filter(defensemetric, Species != "Acacia aneura" & Species != "Acronychia imperforata" & Species != "Allocasuarina monilifera" & Species != "Austrostipa densiflora" & Species != "Callitris glaucophylla" & Species != "Crowea exalata" & Species != "Eucalyptus fastigata" & Species != "Eucalyptus langleyi" & Species != "Eucalyptus pauciflora" & Species != "Gompholobium latifolium" & Species != "Grevillea mucronulata" & Species != "Polycalymma stuartii" & Species != "Xerochrysum viscosum")
-
+defensemetric <- left_join(defensesPCAdataspecies, ModernDefensePCA, by = "Species") %>%
+                           left_join(., OldDefensePCA, by = "Species")
 ```
+
+calculate the log response ratio of change in overall defences through time
+```{r}
+defensemetric$defenseoverallLRR <- log((defensemetric$ModernPCA+41.4857576)/(defensemetric$OldPCA+41.4857576
+)) #have to add a constant because log doesn't do well with negative values
+```
+
 
 save that data as a csv to use in further analysis
 
 ```{r}
 write.csv(defensemetric, "defensemetric.csv")
 ```
-

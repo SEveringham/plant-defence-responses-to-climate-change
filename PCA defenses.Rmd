@@ -96,7 +96,7 @@ OldDefensePCA <- as.data.frame(defenses.PCA.Old$x) %>%
   rename(OldPCA = PC1)%>%
   rownames_to_column(var = "Species")
 
-defensemetric <- left_join(defensesPCAdataspecies, ModernDefensePCA, by = "Species") %>%
+defensemetric <- left_join(defensePCAdata, ModernDefensePCA, by = "Species") %>%
                            left_join(., OldDefensePCA, by = "Species")
 ```
 

@@ -13,7 +13,6 @@ library(phylobase)
 library(phylosignal)
 library(readr)
 library(phytools)
-
 ```
 Read in my data
 ```{r}
@@ -21,6 +20,14 @@ defencedata <- read.csv("defensesdatafull.csv") %>%
         mutate(Species=as.character(Species)) %>%
         filter(Species!="Acacia hakeoidesT") %>%
         mutate(Species = ifelse(Species=="Acacia hakeoidesB", "Acacia hakeoides", Species))
+
+defencemetric <- read.csv("defensemetric.csv") %>%
+        mutate(Species=as.character(Species)) %>%
+        filter(Species!="Acacia hakeoidesT") %>%
+        mutate(Species = ifelse(Species=="Acacia hakeoidesB", "Acacia hakeoides", Species)) %>%
+        select(Species, defenseoverallLRR)
+
+defencedata <- left_join(defencedata, defencemetric, by = "Species")
 ```
 
 Read in the phylogenetic tree
@@ -37,4 +44,85 @@ Plot the tree
 ```{r}
 #plotting tree
 tiff("mytree.tiff", width = 6, height = 8, units = 'in', res = 300)
-plot(resultphylo$Scenario.3,main="Scenarion Three") ## plott
+plot(resultphylo$Scenario.3,main="Scenarion Three") ## plotting tree
+dev.off()
+```
+
+Prune the tree and add it to the defence data
+```{r}
+PrunedTree <- resultphylo$Scenario.3 ## this is my pruned tree, i picked scen 3 because it deals with missing spp best
+
+Species_ <- gsub(" ", "_", defencedata$Species)
+defencedata <- cbind(defencedata, Species_)
+defencedata <- rename(defencedata, "PrunedTree$tip.label"=Species_)
+defencedata <- right_join(defencedata, as.data.frame(PrunedTree$tip.label), by = "PrunedTree$tip.label")
+defencedata <- rename(defencedata, Species_="PrunedTree$tip.label")
+species.vector <- as.vector(defencedata$Species_)
+
+#adds a column "phylo" to your data 
+defencedata[, "phylo"] <- species.vector
+branchlengths <- compute.brlen(PrunedTree)
+```
+
+Run phylogenetic analysis
+```{r}
+phylo4d <- phylo4d(branchlengths, defencedata$phenolicsLRR) ### in here and in the next two test rows below, 
+                                    #Change the "phenolicsLRR" variable to each remaining trait (lipids, C:N etc) until you have analysed all the trait variables, 
+                                            
+                                    #note that the variables are:
+                                            # phenolicsLRR
+                                            # lipidsLRR
+                                            # thicknessLRR
+                                            # C.N.LRR
+                                            # ashLRR
+                                            # lmaLRR
+                                            # defenseoverallLRR
+                                            
+
+teststat <- phyloSignal(phylo4d, rep =999)
+
+teststat
+
+```
+
+Two methods for getting signal (more in phylosig documentation)
+```{r}
+#Method for signal 1 (K)
+phylosig(branchlengths, (defencedata$defenseoverallLRR), method = "K", test = T)
+
+#Method for signal 2 (lamba)
+phylosig(branchlengths, (defencedata$defenseoverallLRR), method = "lambda", test = T)
+
+## and keep replacing afer the "$" for each variable as with the previous chunk
+```
+
+Make a bar plot of some sort that matches the same tree order to put in the supplementary to show heat map of defense trait change on phylogeny 
+
+Having to do this mostly by hand as I've found it's the easiest way
+```{r}
+# 1. Create a species list from the tree
+specieslist <- as.data.frame(resultphylo$Scenario.3$tip.label) %>%
+  rename(Species = `resultphylo$Scenario.3$tip.label`)
+
+specieslist$Species <- gsub("_", " ", specieslist$Species)
+
+# 2. merge with defence dataa
+defencewithspecieslist <- left_join(specieslist, defencedata, by = "Species")
+
+# 3. lock in order of species
+defencewithspecieslist$Species <- factor(defencewithspecieslist$Species, levels = defencewithspecieslist$Species)
+
+# 4. plot
+
+defenceyphyloplot <- ggplot(defencewithspecieslist, aes(x=defenseoverallLRR, y=Species)) +
+  geom_col(fill = "darkseagreen4") +
+  theme_classic() +
+  theme(axis.text.y = element_text(face = "italic", hjust = 0)) +
+  theme(axis.text.y=element_text(size=10)) +
+  theme(legend.text = element_blank())
+plot(defenceyphyloplot)
+
+# 5. save the plot and stitch it together with the tree in an image editor
+ggsave(filename = "phyloplotstrength.tiff", plot=defenceyphyloplot, device="tiff", width=5, height=8, units="in")
+```
+

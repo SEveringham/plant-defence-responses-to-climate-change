@@ -20,7 +20,7 @@ Read in data
 ```{r}
 defensesdata <- read.csv("defensesdatafull.csv")
 defensesmetric <- read.csv("defensemetric.csv") %>%
-  select(Species, PC1)
+  select(Species, defenseoverallLRR)
 
 #add the metric for defense to the 
 defensesdata <- left_join(defensesdata, defensesmetric, by = "Species")
@@ -129,7 +129,7 @@ round(mmi, 4)
 4. Defenses metric
 
 ```{r}
-overallmodelselection <- glmulti(PC1 ~ Changeavtemp + Changetemprange + Changetempvar + Changeav + Changerange + Changevar + Changemaxseasonal + Changeminseasonal + Changedrought + Changeheatwave + Changevpd + Changemaxdryspell + Changedrought, vi = 1, data=defensesdata, level=1, fitfunction=rma.glmulti, crit="aicc", confsetsize = 8192)
+overallmodelselection <- glmulti(defenseoverallLRR ~ Changeavtemp + Changetemprange + Changetempvar + Changeav + Changerange + Changevar + Changemaxseasonal + Changeminseasonal + Changedrought + Changeheatwave + Changevpd + Changemaxdryspell + Changedrought, vi = 1, data=defensesdata, level=1, fitfunction=rma.glmulti, crit="aicc", confsetsize = 8192)
 
 summary(overallmodelselection@objects[[1]])
 print(overallmodelselection)
